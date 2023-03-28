@@ -113,7 +113,7 @@ contract GamingShibaContract is Context, IERC20, Ownable, Initializable {
         _;
     }
 
-    //0x9Ac64Cc6e4415144C455BD8E4837Fea55603e5c3
+    //router: 0x9Ac64Cc6e4415144C455BD8E4837Fea55603e5c3
     constructor(
         uint256 _supply,
         address _router,
