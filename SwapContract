@@ -1,0 +1,90 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.7;
+
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+
+contract SwapContract is Ownable {
+    using SafeERC20 for IERC20;
+
+    uint256 public maxBalance;
+    uint256 public balance;
+    uint256 public oldBalance;
+
+    uint256 public valuation;
+    uint256 public decimalsValuation;
+
+    address public immutable token;
+    IERC20 public immutable itoken;
+
+    IERC20 public immutable oldToken;
+
+    event TransferSent(address indexed _destAddr, uint256 _amount);
+
+    constructor(IERC20 _itoken, IERC20 _oldToken) {
+        token = address(_itoken);
+        itoken = _itoken;
+
+        oldToken = _oldToken;
+    }
+
+    //Called after tokens are allocated.
+    function init() public onlyOwner {
+        if (maxBalance == 0) {
+            maxBalance = itoken.balanceOf(address(this));
+            balance = itoken.balanceOf(address(this));
+        }
+    }
+
+    //if decimals are used
+    function sqrt(uint256 x) internal pure returns (uint256) {
+        if (x > 1) {
+            uint256 val = 10;
+            for (uint256 i = 1; i < x; i++) {
+                val *= 10;
+            }
+            return val;
+        } else {
+            return 10;
+        }
+    }
+
+    //0.000001 => 1, 6
+    function setValuation(uint256 _valuation, uint256 decimals)
+        public
+        onlyOwner
+    {
+        valuation = _valuation;
+        decimalsValuation = decimals;
+    }
+
+    function calculateAmount(uint256 amount) internal view returns (uint256) {
+        if (decimalsValuation == 0) {
+            return amount * valuation;
+        } else {
+            return (amount * valuation) / sqrt(decimalsValuation);
+        }
+    }
+
+    function SwapTokens(uint256 amount) public {
+        require(valuation > 0, "No valuation for token set");
+        require(amount > 0, "Invalid amount");
+        balance = itoken.balanceOf(address(this));
+
+        uint256 calAmount = calculateAmount(amount);
+        require(calAmount <= balance, "Not enough balance for the swap.");
+        require(
+            calAmount <= oldToken.balanceOf(msg.sender),
+            "Not enough tokens for the swap."
+        );
+
+        balance -= calAmount;
+        oldBalance += amount;
+
+        oldToken.safeTransferFrom(msg.sender, address(this), amount);
+        emit TransferSent(address(this), amount);
+        itoken.safeTransfer(msg.sender, calAmount);
+        emit TransferSent(msg.sender, calAmount);
+    }
+}
